@@ -16,7 +16,7 @@ The “MTLSA.m” is the implementation of “Multi-Task Learning model for Surv
 >>MTLSA 'NSBCD_data/' 'NSBCD_train_1' 'NSBCD_test_1' 100 0.01
 
 The “MTLSA_V2.m” is the implementation of an adaptive variant of MTLSA model, and the result will be saved in the same folder where the training and testing data are saved.  
-***run example of MTLSA.m
+***run example of MTLSA_V2.m
 >>MTLSA_V2 'NSBCD_data/' 'NSBCD_train_1' 'NSBCD_test_1' 100 0.01
 
 You are suggested to read the paper 
