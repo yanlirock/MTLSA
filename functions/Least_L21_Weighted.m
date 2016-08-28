@@ -19,12 +19,14 @@
 % funcVal: function value vector.
 %
 %% RELATED PAPERS
-%
-%   [1] Evgeniou, A. and Pontil, M. Multi-task feature learning, NIPS 2007.
+%   [1]Yan Li, Jie Wang, Jieping Ye and Chandan K. Reddy "A Multi-Task Learning
+%     Formulation for Survival Analysis". In Proceedings of the 22nd ACM SIGKDD
+%     International Conference on Knowledge Discovery and Data Mining (KDD'16),
+%     San Francisco, CA, Aug. 2016
 %   [2] Liu, J. and Ye, J. Efficient L1/Lq Norm Regularization, Technical
 %       Report, 2010.
 %% RELATED package
-%  MALSAR
+%  MTLSA
 %% Code starts here
 function [W, funcVal] = Least_L21_Weighted(X, Y, W_old, A, rho1, opts)
 
@@ -142,91 +144,28 @@ W = Wzp;
 
 % private functions
 
+    
     function [Wp] = FGLasso_projection (W, lambda )
         % solve it in row wise (L_{2,1} is row coupled).
         % for each row we need to solve the proximal opterator
         % argmin_w { 0.5 \|w - v\|_2^2 + lambda_3 * \|w\|_2 }
         
-        Wp = zeros(size(W));
-        
-        if opts.pFlag
-            parfor i = 1 : size(W, 1)
-                v = W(i, :);
-                nm = norm(v, 2);
-                if nm == 0
-                    w = zeros(size(v));
-                else
-                    w = max(nm - lambda, 0)/nm * v;
-                end
-                Wp(i, :) = w';
-            end
-        else
-            for i = 1 : size(W, 1)
-                v = W(i, :);
-                nm = norm(v, 2);
-                if nm == 0
-                    w = zeros(size(v));
-                else
-                    w = max(nm - lambda, 0)/nm * v;
-                end
-                Wp(i, :) = w';
-            end
-        end
+        nm=sqrt(sum(W.^2,2));
+        Wp = bsxfun(@times,max(nm-lambda,0)./nm,W);
     end
 
 % smooth part gradient.
     function [grad_W,BX] = gradVal_eval(W,A)
         BX  = X' * W;
-            for ii = 1:num_sample
-                BX(ii,:)=sequence_bottomup(BX(ii,:),task_num);
-            end
-        if opts.pFlag
-            grad_W = zeros(zeros(W));
-            parfor i = 1:task_num
-                grad_W (i, :) = X*((BX(:,i)-Y(:,i)).*A(:,i));
-            end
-        else
-            grad_W = [];
-            for i = 1:task_num
-                grad_W = cat(2, grad_W, X*((BX(:,i)-Y(:,i)).*A(:,i)));
-            end
-        end
-        grad_W = grad_W+ rho_L2 * 2 * W;
+        grad_W = X*((BX-Y).*A)+ rho_L2 * 2 * W;
     end
 
 % smooth part function value.
     function [funcVal] = funVal_eval (W,A)
-        funcVal = 0;
-         BX  = X' * W;
-            for ii = 1:num_sample
-                BX(ii,:)=sequence_bottomup(BX(ii,:),task_num);
-            end
-        if opts.pFlag
-            parfor i = 1: task_num
-                funcVal = funcVal + 0.5 * norm ((Y(:,i) - BX(:,i)).*A(:,i))^2;
-            end
-        else
-            for i = 1: task_num
-                funcVal = funcVal + 0.5 * norm ((Y(:,i) - BX(:,i)).*A(:,i))^2;
-            end
-        end
-        funcVal = funcVal + rho_L2 * norm(W,'fro')^2;
+        funcVal = 0.5 * norm ((X' * W-Y).*A,'fro')^2+rho_L2 * norm(W,'fro')^2;
     end
 
     function [non_smooth_value] = nonsmooth_eval(W, rho_1)
-        non_smooth_value = 0;
-        if opts.pFlag
-            parfor i = 1 : size(W, 1)
-                w = W(i, :);
-                non_smooth_value = non_smooth_value ...
-                    + rho_1 * norm(w, 2);
-            end
-        else
-            for i = 1 : size(W, 1)
-                w = W(i, :);
-                non_smooth_value = non_smooth_value ...
-                    + rho_1 * norm(w, 2);
-            end
-        end
+        non_smooth_value = sum(rho_1*sqrt(sum(W.^2,2)));
     end
 end
