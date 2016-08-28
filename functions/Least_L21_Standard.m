@@ -25,7 +25,7 @@
 %       Report, 2010.
 %
 %% RELATED package
-%  MALSAR
+%  MTLSA
 %% Code starts here
 function [W, funcVal] = Least_L21_Standard(X, Y, rho1,rho2,W_old,opts)
 
@@ -47,8 +47,8 @@ else
     rho_L2 = 0;
 end
 
-task_num  = size (Y,2);
-dimension = size(X, 1);
+%task_num  = size (Y,2);
+%dimension = size(X, 1);
 funcVal = [];
 
 bFlag=0; % this flag tests whether the gradient step only changes a little
@@ -68,13 +68,14 @@ while iter < opts.maxIter
     alpha = (t_old - 1) /t;
     
     Ws = (1 + alpha) * Wz - alpha * Wz_old;
-    
+    %Ws = sparse(Ws);
     % compute function value and gradients of the search point
     gWs  = gradVal_eval(Ws);
     Fs   = funVal_eval (Ws);
     
     while true
         Wzp = FGLasso_projection(Ws - gWs/gamma, rho1 / gamma);
+        Wzp=sparse(Wzp);
         Fzp = funVal_eval  (Wzp);
         
         delta_Wzp = Wzp - Ws;
@@ -146,78 +147,21 @@ W = Wzp;
         % for each row we need to solve the proximal opterator
         % argmin_w { 0.5 \|w - v\|_2^2 + lambda_3 * \|w\|_2 }
         
-        Wp = zeros(size(W));
-        
-        if opts.pFlag
-            parfor i = 1 : size(W, 1)
-                v = W(i, :);
-                nm = norm(v, 2);
-                if nm == 0
-                    w = zeros(size(v));
-                else
-                    w = max(nm - lambda, 0)/nm * v;
-                end
-                Wp(i, :) = w';
-            end
-        else
-            for i = 1 : size(W, 1)
-                v = W(i, :);
-                nm = norm(v, 2);
-                if nm == 0
-                    w = zeros(size(v));
-                else
-                    w = max(nm - lambda, 0)/nm * v;
-                end
-                Wp(i, :) = w';
-            end
-        end
+        nm=sqrt(sum(W.^2,2));
+        Wp = bsxfun(@times,max(nm-lambda,0)./nm,W);
     end
 
 % smooth part gradient.
     function [grad_W] = gradVal_eval(W)
-        if opts.pFlag
-            grad_W = zeros(zeros(W));
-            parfor i = 1:task_num
-                grad_W (i, :) = rho2*X*(X' * W(:,i)-Y(:,i));
-            end
-        else
-            grad_W = [];
-            for i = 1:task_num
-                grad_W = cat(2, grad_W, rho2*X*((X' * W(:,i)-Y(:,i))));
-            end
-        end
-        grad_W = grad_W+ rho_L2 * 2 * W;
+        grad_W = rho2*X*((X' * W-Y))+ rho_L2 * 2 * W;
     end
 
 % smooth part function value.
     function [funcVal] = funVal_eval (W)
-        funcVal = 0;
-        if opts.pFlag
-            parfor i = 1: task_num
-                funcVal = funcVal + 0.5 *rho2* norm (((X' * W(:,i)-Y(:,i))))^2;
-            end
-        else
-            for i = 1: task_num
-                funcVal = funcVal + 0.5 *rho2* norm (((X' * W(:,i)-Y(:,i))))^2;
-            end
-        end
-        funcVal = funcVal + rho_L2 * norm(W,'fro')^2;
+        funcVal = 0.5 *rho2* norm ((X' * W-Y),'fro')^2+rho_L2 * norm(W,'fro')^2;
     end
 
     function [non_smooth_value] = nonsmooth_eval(W, rho_1)
-        non_smooth_value = 0;
-        if opts.pFlag
-            parfor i = 1 : size(W, 1)
-                w = W(i, :);
-                non_smooth_value = non_smooth_value ...
-                    + rho_1 * norm(w, 2);
-            end
-        else
-            for i = 1 : size(W, 1)
-                w = W(i, :);
-                non_smooth_value = non_smooth_value ...
-                    + rho_1 * norm(w, 2);
-            end
-        end
+        non_smooth_value = sum(rho_1*sqrt(sum(W.^2,2)));
     end
 end
